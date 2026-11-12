@@ -1,0 +1,7 @@
+rust_input: crate::api
+rust_root: rust/
+dart_output: lib/src/rust
+web: false
+type_64bit_int: true
+dart_format: true
+dart_fix: false

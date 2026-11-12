@@ -107,42 +107,7 @@ class _SearchPageState extends State<SearchPage> {
       return;
     }
 
-    bool check(String text, String key, String value) {
-      if (text.removeAllBlank == "") {
-        return false;
-      }
-      if (key.length >= text.length && key.substring(0, text.length) == text ||
-          (key.contains(" ") &&
-              key.split(" ").last.length >= text.length &&
-              key.split(" ").last.substring(0, text.length) == text)) {
-        return true;
-      } else if (value.length >= text.length && value.contains(text)) {
-        return true;
-      }
-      return false;
-    }
-
-    void find(Map<String, String> map, TranslationType type) {
-      for (var element in map.entries) {
-        if (suggestions.length > 100) {
-          break;
-        }
-        if (check(text, element.key, element.value)) {
-          suggestions.add(Pair(element.key, type));
-        }
-      }
-    }
-
-    find(TagsTranslation.femaleTags, TranslationType.female);
-    find(TagsTranslation.maleTags, TranslationType.male);
-    find(TagsTranslation.parodyTags, TranslationType.parody);
-    find(TagsTranslation.characterTranslations, TranslationType.character);
-    find(TagsTranslation.otherTags, TranslationType.other);
-    find(TagsTranslation.mixedTags, TranslationType.mixed);
-    find(TagsTranslation.languageTranslations, TranslationType.language);
-    find(TagsTranslation.artistTags, TranslationType.artist);
-    find(TagsTranslation.groupTags, TranslationType.group);
-    find(TagsTranslation.cosplayerTags, TranslationType.cosplayer);
+    suggestions.addAll(TagsTranslation.suggestions(text, 100));
     update();
   }
 

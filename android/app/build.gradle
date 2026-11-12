@@ -27,7 +27,10 @@ if (flutterVersionName == null) {
 
 def keystorePropertiesFile = rootProject.file("key.properties")
 def keystoreProperties = new Properties()
-keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+def hasSigningProperties = keystorePropertiesFile.exists()
+if (hasSigningProperties) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
 
 android {
     namespace = "io.github.yo1sing.venera.edge"
@@ -58,17 +61,13 @@ android {
     }
 
     signingConfigs {
-        debug {
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-        }
-        release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
+        if (hasSigningProperties) {
+            custom {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
         }
     }
 
@@ -89,13 +88,18 @@ android {
             ndk {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
-            signingConfig signingConfigs.release
+            if (hasSigningProperties) {
+                signingConfig signingConfigs.custom
+            }
         }
         debug {
             ndk {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
             }
-            signingConfig signingConfigs.debug
+            // Without a release keystore, use Android's standard debug key.
+            if (hasSigningProperties) {
+                signingConfig signingConfigs.custom
+            }
         }
     }
 
@@ -134,4 +138,13 @@ flutter {
 dependencies {
     implementation "androidx.activity:activity-ktx:1.10.1"
     implementation 'androidx.documentfile:documentfile:1.0.1'
+}
+
+// A local debug build must not require private release signing credentials.
+gradle.taskGraph.whenReady { graph ->
+    if (!hasSigningProperties && graph.allTasks.any {
+        it.project == project && it.name in ['assembleRelease', 'bundleRelease']
+    }) {
+        throw new GradleException('Release signing requires android/key.properties')
+    }
 }

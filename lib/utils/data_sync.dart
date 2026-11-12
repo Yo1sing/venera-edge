@@ -124,7 +124,7 @@ class DataSync with ChangeNotifier {
         url,
         user: user,
         password: pass,
-        adapter: RHttpAdapter(),
+        adapter: RustHttpAdapter(),
       );
 
       try {
@@ -191,7 +191,7 @@ class DataSync with ChangeNotifier {
         url,
         user: user,
         password: pass,
-        adapter: RHttpAdapter(),
+        adapter: RustHttpAdapter(),
       );
 
       try {

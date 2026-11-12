@@ -1,0 +1,52 @@
+name: Rust backend
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+      - run: rustup show
+      - run: cargo fmt --manifest-path rust/Cargo.toml --check
+      - run: cargo test --manifest-path rust/Cargo.toml --locked
+      - run: cargo clippy --manifest-path rust/Cargo.toml --locked --all-targets -- -D warnings
+      - run: cargo build --manifest-path rust/Cargo.toml --locked
+      - run: flutter pub get
+      - name: Configure native library
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "VENERA_BACKEND_LIBRARY=$GITHUB_WORKSPACE/rust/target/debug/venera_backend.dll" >> "$GITHUB_ENV"
+          else
+            echo "VENERA_BACKEND_LIBRARY=$GITHUB_WORKSPACE/rust/target/debug/libvenera_backend.so" >> "$GITHUB_ENV"
+          fi
+      - run: dart run test/backend_bridge_smoke.dart "${{ env.VENERA_BACKEND_LIBRARY }}"
+      - run: flutter test test/native_backend_test.dart test/channel_test.dart
+
+  android:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: oracle
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+      - run: rustup show
+      - run: flutter pub get
+      - run: flutter build apk --debug --target-platform android-arm64

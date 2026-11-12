@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:venera/src/rust/frb_generated.dart';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
 import 'package:flutter_qjs/flutter_qjs.dart';
@@ -94,6 +95,7 @@ class IsolateJsEngine {
     sendPort.send(port.sendPort);
     final engine = JsEngine();
     try {
+      await RustLib.init();
       JsEngine.cacheJsInit(params.jsInit);
       await engine.init();
     }
