@@ -38,15 +38,15 @@ jobs:
         run: |
           mkdir -p dist
           mkdir -p dist/dmg_contents
-          cp -R build/macos/Build/Products/Release/venera.app dist/dmg_contents/
+          cp -R "build/macos/Build/Products/Release/Venera Edge.app" dist/dmg_contents/
           ln -s /Applications dist/dmg_contents/Applications
-          hdiutil create -volname "venera" -srcfolder dist/dmg_contents -ov -format UDZO "dist/venera.dmg"
+          hdiutil create -volname "Venera Edge" -srcfolder dist/dmg_contents -ov -format UDZO "dist/venera-edge.dmg"
 
       - name: Add version to filename
         run: |
           APP_VERSION=$(grep "version:" pubspec.yaml | cut -d':' -f2 | tr -d ' ')
           mkdir -p result
-          mv dist/venera.dmg result/venera-$APP_VERSION.dmg
+          mv dist/venera-edge.dmg result/venera-edge-$APP_VERSION.dmg
 
       # Step 4: Attach and upload artifacts (optional)
       - name: Upload DMG
@@ -67,15 +67,15 @@ jobs:
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign
       - run: |
-          mkdir -p /Users/runner/work/venera/venera/build/ios/iphoneos/Payload
-          mv /Users/runner/work/venera/venera/build/ios/iphoneos/Runner.app /Users/runner/work/venera/venera/build/ios/iphoneos/Payload
-          cd /Users/runner/work/venera/venera/build/ios/iphoneos/
-          zip -r venera-ios.ipa Payload
+          mkdir -p build/ios/iphoneos/Payload
+          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload
+          cd build/ios/iphoneos/
+          zip -r venera-edge-ios.ipa Payload
       - name: Add version to filename
         run: |
           APP_VERSION=$(grep "version:" pubspec.yaml | cut -d':' -f2 | tr -d ' ')
           mkdir -p result
-          mv build/ios/iphoneos/venera-ios.ipa result/venera-ios-$APP_VERSION.ipa
+          mv build/ios/iphoneos/venera-edge-ios.ipa result/venera-edge-ios-$APP_VERSION.ipa
       - uses: actions/upload-artifact@v4
         with:
           name: ios_build
@@ -131,7 +131,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows_build
-          path: build/windows/Venera-*
+          path: build/windows/Venera-Edge-*
   Build_Linux:
     runs-on: ubuntu-22.04
     steps:

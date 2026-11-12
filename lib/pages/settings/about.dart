@@ -40,7 +40,7 @@ class _AboutSettingsState extends State<AboutSettings> {
               "V${App.version}",
               style: const TextStyle(fontSize: 16),
             ),
-            Text("Venera is a free and open-source app for comic reading.".tl),
+            Text("Venera Edge is a free and open-source app for comic reading.".tl),
             const SizedBox(height: 8),
           ],
         ).toSliver(),
@@ -66,17 +66,17 @@ class _AboutSettingsState extends State<AboutSettings> {
           settingKey: "checkUpdateOnStart",
         ).toSliver(),
         ListTile(
-          title: const Text("Github"),
+          title: const Text("GitHub"),
           trailing: const Icon(Icons.open_in_new),
           onTap: () {
-            launchUrlString("https://github.com/venera-app/venera");
+            launchUrlString("https://github.com/Yo1sing/Venera-Edge");
           },
         ).toSliver(),
         ListTile(
-          title: const Text("Telegram"),
+          title: const Text("GitHub Issues"),
           trailing: const Icon(Icons.open_in_new),
           onTap: () {
-            launchUrlString("https://t.me/venera_release");
+            launchUrlString("https://github.com/Yo1sing/Venera-Edge/issues");
           },
         ).toSliver(),
       ],
@@ -86,7 +86,7 @@ class _AboutSettingsState extends State<AboutSettings> {
 
 Future<bool> checkUpdate() async {
   var res = await AppDio()
-      .get("https://cdn.jsdelivr.net/gh/venera-app/venera@master/pubspec.yaml");
+      .get("https://cdn.jsdelivr.net/gh/Yo1sing/Venera-Edge@master/pubspec.yaml");
   if (res.statusCode == 200) {
     var data = loadYaml(res.data);
     if (data["version"] != null) {
@@ -117,7 +117,7 @@ Future<void> checkUpdateUi([bool showMessageIfNoUpdate = true, bool delay = fals
                   onPressed: () {
                     Navigator.pop(context);
                     launchUrlString(
-                        "https://github.com/venera-app/venera/releases");
+                        "https://github.com/Yo1sing/Venera-Edge/releases");
                   },
                   child: Text("Update".tl),
                 ),

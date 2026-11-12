@@ -74,8 +74,8 @@ def update_json_file_release(json_file, latest_release):
     download_url = None
     size = None
     for asset in assets:
-        # venera-ios-1.4.5+145.ipa
-        if asset["name"] == f"venera-ios-{version}+{version.replace('.', '')}.ipa":
+        # venera-edge-ios-1.4.5+145.ipa
+        if asset["name"] == f"venera-edge-ios-{version}+{version.replace('.', '')}.ipa":
             download_url = asset["browser_download_url"]
             size = asset["size"]
             break
@@ -112,14 +112,14 @@ def update_json_file_release(json_file, latest_release):
     news_identifier = f"release-{full_version}"
     date_string = date_obj.strftime("%d/%m/%y")
     news_entry = {
-        "appID": "com.github.wgh136.venera",
-        "caption": f"Update of Venera just got released!",
+        "appID": "io.github.yo1sing.venera.edge",
+        "caption": f"Update of Venera Edge just got released!",
         "date": latest_release["published_at"],
         "identifier": news_identifier,
         "notify": True,
         "tintColor": "#0784FC",
-        "title": f"{full_version} - Venera  {date_string}",
-        "url": f"https://github.com/venera-app/venera/releases/tag/{tag}"
+        "title": f"{full_version} - Venera Edge  {date_string}",
+        "url": f"https://github.com/Yo1sing/Venera-Edge/releases/tag/{tag}"
     }
 
     news_entry_exists = any(item["identifier"] == news_identifier for item in data["news"])
@@ -135,7 +135,7 @@ def update_json_file_release(json_file, latest_release):
         raise
 
 def main():
-    repo_url = "venera-app/venera"
+    repo_url = "Yo1sing/Venera-Edge"
     is_nightly = "NIGHTLY_LINK" in os.environ
 
     try:

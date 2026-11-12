@@ -1,16 +1,15 @@
-# Due to my limited time and energy, this project is no longer maintained. Feel free to fork it.
-# 由于本人精力有限, 此项目已停止维护, 欢迎fork
-
-# venera
+# Venera Edge
 [![flutter](https://img.shields.io/badge/flutter-3.41.4-blue)](https://flutter.dev/)
-[![License](https://img.shields.io/github/license/venera-app/venera)](https://github.com/venera-app/venera/blob/master/LICENSE)
-[![stars](https://img.shields.io/github/stars/venera-app/venera?style=flat)](https://github.com/venera-app/venera/stargazers)
+[![License](https://img.shields.io/github/license/Yo1sing/Venera-Edge)](https://github.com/Yo1sing/Venera-Edge/blob/master/LICENSE)
+[![stars](https://img.shields.io/github/stars/Yo1sing/Venera-Edge?style=flat)](https://github.com/Yo1sing/Venera-Edge/stargazers)
 
-[![Download](https://img.shields.io/github/v/release/venera-app/venera)](https://github.com/venera-app/venera/releases)
-[![AUR Version](https://img.shields.io/aur/version/venera-bin)](https://aur.archlinux.org/packages/venera-bin)
-[![F-Droid Version](https://img.shields.io/f-droid/v/com.github.wgh136.venera)](https://f-droid.org/packages/com.github.wgh136.venera/)
+[![Download](https://img.shields.io/github/v/release/Yo1sing/Venera-Edge)](https://github.com/Yo1sing/Venera-Edge/releases)
 
-A comic reader that support reading local and network comics.
+A comic reader that supports reading local and network comics, forked from [Venera](https://github.com/venera-app/venera).
+
+Application ID: `io.github.yo1sing.venera.edge`.
+
+The AltStore source is initialized without upstream releases. After publishing the first Venera Edge IPA, run `update_alt_store.py` to populate it with this fork's release information.
 
 ## Features
 - Read local comics

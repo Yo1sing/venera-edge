@@ -1,10 +1,10 @@
-# Venera Headless Mode
+# Venera Edge Headless Mode
 
-Venera's headless mode allows you to run key features from the command line, making it easy to automate tasks and integrate with other tools. This document outlines the available commands and their usage.
+Venera Edge's headless mode allows you to run key features from the command line, making it easy to automate tasks and integrate with other tools. This document outlines the available commands and their usage.
 
 ## How to Use
 
-To activate headless mode, use the `--headless` flag when running the Venera executable, followed by the desired command.
+To activate headless mode, use the `--headless` flag when running the Venera Edge executable, followed by the desired command.
 
 ```bash
 venera --headless <command> [subcommand] [options]

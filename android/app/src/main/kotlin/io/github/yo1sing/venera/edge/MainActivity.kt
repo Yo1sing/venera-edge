@@ -1,4 +1,4 @@
-package com.github.wgh136.venera
+package io.github.yo1sing.venera.edge
 
 import android.Manifest
 import android.app.Activity

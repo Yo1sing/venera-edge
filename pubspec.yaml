@@ -1,5 +1,7 @@
 name: venera
-description: "A comic app."
+description: "Venera Edge - a comic reader for local and network comics."
+repository: https://github.com/Yo1sing/Venera-Edge
+issue_tracker: https://github.com/Yo1sing/Venera-Edge/issues
 publish_to: 'none'
 
 version: 1.6.3+163
@@ -107,11 +109,11 @@ flutter:
 # fonts:
 
 flutter_to_arch:
-  name: Venera
+  name: Venera Edge
   icon: debian/gui/venera.png
   categories: Utility
   keywords: Flutter;comic;images;
-  url: https://github.com/venera-app/venera
+  url: https://github.com/Yo1sing/Venera-Edge
   depends:
     - gtk3
     - webkit2gtk-4.1
