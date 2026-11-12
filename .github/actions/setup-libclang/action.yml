@@ -1,0 +1,33 @@
+name: Set up libclang
+description: Install the host LLVM libraries required by rquickjs bindgen
+runs:
+  using: composite
+  steps:
+    - name: Install libclang on Linux
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang libclang-dev
+    - name: Install libclang on Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $llvmBin = 'C:\Program Files\LLVM\bin'
+        if (-not (Test-Path "$llvmBin\libclang.dll")) {
+          choco install llvm -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        if (-not (Test-Path "$llvmBin\libclang.dll")) {
+          throw 'LLVM installation did not provide libclang.dll'
+        }
+        "LIBCLANG_PATH=$llvmBin" >> $env:GITHUB_ENV
+        $llvmBin >> $env:GITHUB_PATH
+    - name: Install libclang on macOS
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        if ! brew list --versions llvm >/dev/null; then
+          brew install llvm
+        fi
+        echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> "$GITHUB_ENV"

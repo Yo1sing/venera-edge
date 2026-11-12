@@ -8,6 +8,26 @@ use std::{
 
 const WEEK_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 
+pub fn shared(
+    data_path: &str,
+    cache_path: &str,
+) -> Result<std::sync::Arc<std::sync::Mutex<Cache>>> {
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    type Stores = std::collections::HashMap<(String, String), Weak<Mutex<Cache>>>;
+    static STORES: OnceLock<Mutex<Stores>> = OnceLock::new();
+    let mut stores = STORES
+        .get_or_init(Default::default)
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Cache registry poisoned"))?;
+    let key = (data_path.to_owned(), cache_path.to_owned());
+    if let Some(store) = stores.get(&key).and_then(Weak::upgrade) {
+        return Ok(store);
+    }
+    let store = Arc::new(Mutex::new(Cache::open(data_path, cache_path)?));
+    stores.insert(key, Arc::downgrade(&store));
+    Ok(store)
+}
+
 pub(crate) fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

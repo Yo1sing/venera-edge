@@ -70,7 +70,7 @@ fn excluded(settings: &Value) -> Vec<String> {
         .collect()
 }
 
-pub fn save(directory: &str, data: Value) -> Result<()> {
+pub fn save(directory: &str, mut data: Value) -> Result<()> {
     ensure!(
         data["settings"].is_object() && data["searchHistory"].is_array(),
         "Invalid appdata snapshot"
@@ -78,6 +78,14 @@ pub fn save(directory: &str, data: Value) -> Result<()> {
     let _guard = WRITES
         .lock()
         .map_err(|_| anyhow::anyhow!("settings lock poisoned"))?;
+    // A UI snapshot taken during a WebDAV upload must not rewind its revision.
+    if let Some(previous) = read_optional(&Path::new(directory).join("appdata.json"))? {
+        if let Some(version) = previous["settings"]["dataVersion"].as_u64() {
+            if version > data["settings"]["dataVersion"].as_u64().unwrap_or(0) {
+                data["settings"]["dataVersion"] = version.into();
+            }
+        }
+    }
     let mut sync = data.clone();
     for key in excluded(&data["settings"]) {
         sync["settings"].as_object_mut().unwrap().remove(&key);

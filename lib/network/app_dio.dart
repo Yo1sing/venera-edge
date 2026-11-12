@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:venera/src/rust/api/http.dart' as backend;
 import 'package:venera/foundation/appdata.dart';
 import 'package:venera/foundation/log.dart';
-import 'package:venera/network/cache.dart';
 import 'package:venera/network/proxy.dart';
 
 import '../foundation/app.dart';
@@ -134,47 +133,11 @@ class AppDio with DioMixin {
     httpClientAdapter = RustHttpAdapter();
     if (App.isInitialized) {
       interceptors.add(CookieManagerSql(SingleInstanceCookieJar.instance!));
-      interceptors.add(NetworkCacheManager());
       interceptors.add(CloudflareInterceptor());
       interceptors.add(MyLogInterceptor());
     }
   }
 
-  static final Map<String, bool> _requests = {};
-
-  @override
-  Future<Response<T>> request<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    CancelToken? cancelToken,
-    Options? options,
-    ProgressCallback? onSendProgress,
-    ProgressCallback? onReceiveProgress,
-  }) async {
-    if (options?.headers?['prevent-parallel'] == 'true') {
-      while (_requests.containsKey(path)) {
-        await Future.delayed(const Duration(milliseconds: 20));
-      }
-      _requests[path] = true;
-      options!.headers!.remove('prevent-parallel');
-    }
-    try {
-      return await super.request<T>(
-        path,
-        data: data,
-        queryParameters: queryParameters,
-        cancelToken: cancelToken,
-        options: options,
-        onSendProgress: onSendProgress,
-        onReceiveProgress: onReceiveProgress,
-      );
-    } finally {
-      if (_requests.containsKey(path)) {
-        _requests.remove(path);
-      }
-    }
-  }
 }
 
 /// Adapts Dio's UI/source-facing API to the Rust HTTP transport.

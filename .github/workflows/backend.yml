@@ -14,6 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-libclang
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -33,12 +34,13 @@ jobs:
             echo "VENERA_BACKEND_LIBRARY=$GITHUB_WORKSPACE/rust/target/debug/libvenera_backend.so" >> "$GITHUB_ENV"
           fi
       - run: dart run test/backend_bridge_smoke.dart "${{ env.VENERA_BACKEND_LIBRARY }}"
-      - run: flutter test test/native_backend_test.dart test/channel_test.dart
+      - run: flutter test
 
   android:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-libclang
       - uses: actions/setup-java@v4
         with:
           distribution: oracle

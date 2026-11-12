@@ -111,6 +111,17 @@ class AndroidEnvironment {
 
     final targetArg = '--target=${target.rust}$minSdkVersion';
 
+    // libclang runs on the host, but bindgen must parse Android's headers and
+    // API level. Do not let it pick up Windows/Linux/macOS system headers.
+    final bindgenKey =
+        'BINDGEN_EXTRA_CLANG_ARGS_${target.rust.replaceAll('-', '_')}';
+    final sysroot =
+        path.join(toolchainPath, '..', 'sysroot').replaceAll('\\', '/');
+    final extraBindgenArgs = Platform.environment[bindgenKey] ??
+        Platform.environment['BINDGEN_EXTRA_CLANG_ARGS'] ??
+        '';
+    final bindgenArgs = '--sysroot="$sysroot" $targetArg $extraBindgenArgs';
+
     final ccKey = 'CC_${target.rust}';
     final ccValue = path.join(toolchainPath, 'clang$exe');
     final cfFlagsKey = 'CFLAGS_${target.rust}';
@@ -159,6 +170,7 @@ class AndroidEnvironment {
       ranlibKey: ranlibValue,
       rustFlagsKey: rustFlagsValue,
       linkerKey: selfPath,
+      bindgenKey: bindgenArgs,
       // Recognized by main() so we know when we're acting as a wrapper
       '_CARGOKIT_NDK_LINK_TARGET': targetArg,
       '_CARGOKIT_NDK_LINK_CLANG': ccValue,
@@ -189,7 +201,7 @@ class AndroidEnvironment {
     if (rustFlags.isNotEmpty) {
       rustFlags = '$rustFlags\x1f';
     }
-    
+
     if (["arm64-v8a", "x86_64"].contains(target.android)) {
       rustFlags = '$rustFlags-L\x1f$workaroundDir\x1f';
 

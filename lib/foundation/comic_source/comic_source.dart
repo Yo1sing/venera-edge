@@ -6,7 +6,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_qjs/flutter_qjs.dart';
+import 'package:venera/src/rust/api/script.dart' as script_backend;
+import 'package:venera/foundation/source_data.dart';
 import 'package:venera/foundation/app.dart';
 import 'package:venera/foundation/comic_type.dart';
 import 'package:venera/foundation/history.dart';
@@ -17,7 +18,6 @@ import 'package:venera/utils/data_sync.dart';
 import 'package:venera/utils/ext.dart';
 import 'package:venera/utils/init.dart';
 import 'package:venera/utils/io.dart';
-import 'package:venera/utils/translations.dart';
 
 import '../js_engine.dart';
 import '../log.dart';
@@ -53,22 +53,18 @@ class ComicSourceManager with ChangeNotifier, Init {
   @protected
   Future<void> doInit() async {
     await JsEngine().ensureInit();
-    final path = "${App.dataPath}/comic_source";
-    if (!(await Directory(path).exists())) {
-      Directory(path).create();
-      return;
-    }
-    await for (var entity in Directory(path).list()) {
-      if (entity is File && entity.path.endsWith(".js")) {
-        try {
-          var source = await ComicSourceParser().parse(
-            await entity.readAsString(),
-            entity.absolute.path,
-          );
-          _sources.add(source);
-        } catch (e, s) {
-          Log.error("ComicSource", "$e\n$s");
-        }
+    for (final path in await script_backend.sourceFiles(
+      directory: App.dataPath,
+    )) {
+      try {
+        _sources.add(
+          await ComicSourceParser().parse(
+            await script_backend.readSourceFile(path: path),
+            path,
+          ),
+        );
+      } catch (e, s) {
+        Log.error('ComicSource', '$e\n$s');
       }
     }
   }
@@ -158,7 +154,7 @@ class ComicSource {
   final Map<String, dynamic> Function(String imageKey)?
   getThumbnailLoadingConfig;
 
-  var data = <String, dynamic>{};
+  late final Map<String, dynamic> data = SourceDataMap(key);
 
   bool get isLogged => data["account"] != null;
 
@@ -204,49 +200,24 @@ class ComicSource {
   final ArchiveDownloader? archiveDownloader;
 
   Future<void> loadData() async {
-    var file = File("${App.dataPath}/comic_source/$key.data");
-    if (await file.exists()) {
-      data = Map.from(jsonDecode(await file.readAsString()));
-    }
+    script_backend.loadSourceData(directory: App.dataPath, key: key);
   }
 
-  bool _isSaving = false;
-  bool _haveWaitingTask = false;
-
   Future<void> saveData() async {
-    if (_haveWaitingTask) return;
-    while (_isSaving) {
-      _haveWaitingTask = true;
-      await Future.delayed(const Duration(milliseconds: 20));
-      _haveWaitingTask = false;
-    }
-    _isSaving = true;
-    var file = File("${App.dataPath}/comic_source/$key.data");
-    if (!await file.exists()) {
-      await file.create(recursive: true);
-    }
-    await file.writeAsString(jsonEncode(data));
-    _isSaving = false;
+    // Map/list mutations have already been persisted by the Rust source store.
     DataSync().uploadData();
   }
 
-  Future<bool> reLogin() async {
-    if (data["account"] == null) {
-      return false;
-    }
-    final List accountData = data["account"];
-    var res = await account!.login!(accountData[0], accountData[1]);
-    if (res.error) {
-      Log.error("Failed to re-login", res.errorMessage ?? "Error");
-    }
-    return !res.error;
-  }
+  Future<bool> reLogin() async =>
+      await JsEngine().runCode('__sources.reLogin(${jsonEncode(key)})');
 
   /// Get settings dynamically from JavaScript source.
   /// This allows sources to use getters for dynamic settings that can change at runtime.
   Map<String, Map<String, dynamic>>? getSettingsDynamic() {
     try {
-      var value = JsEngine().runCode("ComicSource.sources.$key.settings");
+      var value = JsEngine().runCode(
+        "ComicSource.sources[${jsonEncode(key)}].settings",
+      );
       if (value is Map) {
         var newMap = <String, Map<String, dynamic>>{};
         for (var e in value.entries) {

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:venera/foundation/js_engine.dart';
+import 'package:venera/src/rust/api/backup.dart' as backend;
 import 'package:flutter/foundation.dart';
 import 'package:venera/components/components.dart';
 import 'package:venera/components/window_frame.dart';
@@ -7,10 +10,7 @@ import 'package:venera/foundation/comic_source/comic_source.dart';
 import 'package:venera/foundation/favorites.dart';
 import 'package:venera/foundation/log.dart';
 import 'package:venera/foundation/res.dart';
-import 'package:venera/network/app_dio.dart';
 import 'package:venera/utils/data.dart';
-import 'package:venera/utils/ext.dart';
-import 'package:webdav_client/webdav_client.dart' hide File;
 import 'package:venera/utils/translations.dart';
 
 import 'io.dart';
@@ -82,82 +82,41 @@ class DataSync with ChangeNotifier {
     return autoSync && config is List && config.isNotEmpty;
   }
 
-  List<String>? _validateConfig() {
-    var config = appdata.settings['webdav'];
-    if (config is! List) {
-      return null;
-    }
-    if (config.isEmpty) {
-      return [];
-    }
-    if (config.length != 3 || config.whereType<String>().length != 3) {
-      return null;
-    }
-    return List.from(config);
+  Future<String> _options() async {
+    final runtime = jsonDecode(await JsEngine.runtimeOptions());
+    return jsonEncode({
+      'directory': App.dataPath,
+      'cache': App.cachePath,
+      'http': runtime['http'],
+    });
   }
 
   Future<Res<bool>> uploadData() async {
-    if (isDownloading) return const Res(true);
-    if (_haveWaitingTask) return const Res(true);
-    while (isUploading) {
+    if (_isDownloading || _haveWaitingTask) return const Res(true);
+    if (_isUploading) {
       _haveWaitingTask = true;
-      await Future.delayed(const Duration(milliseconds: 100));
+      while (_isUploading) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      _haveWaitingTask = false;
     }
-    _haveWaitingTask = false;
     _isUploading = true;
     _lastError = null;
     notifyListeners();
     try {
-      var config = _validateConfig();
-      if (config == null) {
-        _lastError = 'Invalid WebDAV configuration';
-        return const Res.error('Invalid WebDAV configuration');
-      }
-      if (config.isEmpty) {
-        return const Res(true);
-      }
-      String url = config[0];
-      String user = config[1];
-      String pass = config[2];
-
-      var client = newClient(
-        url,
-        user: user,
-        password: pass,
-        adapter: RustHttpAdapter(),
+      await appdata.saveData(false);
+      final data = jsonDecode(
+        await backend.syncUpload(optionsJson: await _options()),
       );
-
-      try {
-        appdata.settings['dataVersion']++;
-        await appdata.saveData(false);
-        var data = await exportAppData(
-            appdata.settings['disableSyncFields'].toString().isNotEmpty
-        );
-        var time =
-            (DateTime.now().millisecondsSinceEpoch ~/ 86400000).toString();
-        var filename = time;
-        filename += '-';
-        filename += appdata.settings['dataVersion'].toString();
-        filename += '.venera';
-        var files = await client.readDir('/');
-        files = files.where((e) => e.name!.endsWith('.venera')).toList();
-        var old = files.firstWhereOrNull((e) => e.name!.startsWith("$time-"));
-        if (old != null) {
-          await client.remove(old.name!);
-        }
-        if (files.length >= 10) {
-          files.sort((a, b) => a.name!.compareTo(b.name!));
-          await client.remove(files.first.name!);
-        }
-        await client.write(filename, await data.readAsBytes());
-        data.deleteIgnoreError();
-        Log.info("Upload Data", "Data uploaded successfully");
-        return const Res(true);
-      } catch (e, s) {
-        Log.error("Upload Data", e, s);
-        _lastError = e.toString();
-        return Res.error(e.toString());
+      final revision = data['settings']['dataVersion'] as int;
+      if (revision > (appdata.settings['dataVersion'] as int)) {
+        appdata.settings['dataVersion'] = revision;
       }
+      return const Res(true);
+    } catch (e, s) {
+      _lastError = e.toString();
+      Log.error('Upload Data', e, s);
+      return Res.error(e.toString());
     } finally {
       _isUploading = false;
       notifyListeners();
@@ -166,8 +125,8 @@ class DataSync with ChangeNotifier {
 
   Future<Res<bool>> downloadData() async {
     if (_haveWaitingTask) return const Res(true);
-    while (isDownloading || isUploading) {
-      _haveWaitingTask = true;
+    _haveWaitingTask = true;
+    while (_isDownloading || _isUploading) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
     _haveWaitingTask = false;
@@ -175,53 +134,20 @@ class DataSync with ChangeNotifier {
     _lastError = null;
     notifyListeners();
     try {
-      var config = _validateConfig();
-      if (config == null) {
-        _lastError = 'Invalid WebDAV configuration';
-        return const Res.error('Invalid WebDAV configuration');
-      }
-      if (config.isEmpty) {
-        return const Res(true);
-      }
-      String url = config[0];
-      String user = config[1];
-      String pass = config[2];
-
-      var client = newClient(
-        url,
-        user: user,
-        password: pass,
-        adapter: RustHttpAdapter(),
-      );
-
-      try {
-        var files = await client.readDir('/');
-        files.sort((a, b) => b.name!.compareTo(a.name!));
-        var file = files.firstWhereOrNull((e) => e.name!.endsWith('.venera'));
-        if (file == null) {
-          throw 'No data file found';
+      final path = await backend.syncDownload(optionsJson: await _options());
+      if (path != null) {
+        final file = File(path);
+        try {
+          await importAppData(file, true);
+        } finally {
+          await file.deleteIgnoreError();
         }
-        var version =
-            file.name!.split('-').elementAtOrNull(1)?.split('.').first;
-        if (version != null && int.tryParse(version) != null) {
-          var currentVersion = appdata.settings['dataVersion'];
-          if (currentVersion != null && int.parse(version) <= currentVersion) {
-            Log.info("Data Sync", 'No new data to download');
-            return const Res(true);
-          }
-        }
-        Log.info("Data Sync", "Downloading data from WebDAV server");
-        var localFile = File(FilePath.join(App.cachePath, file.name!));
-        await client.read2File(file.name!, localFile.path);
-        await importAppData(localFile, true);
-        await localFile.delete();
-        Log.info("Data Sync", "Data downloaded successfully");
-        return const Res(true);
-      } catch (e, s) {
-        Log.error("Data Sync", e, s);
-        _lastError = e.toString();
-        return Res.error(e.toString());
       }
+      return const Res(true);
+    } catch (e, s) {
+      _lastError = e.toString();
+      Log.error('Download Data', e, s);
+      return Res.error(e.toString());
     } finally {
       _isDownloading = false;
       notifyListeners();

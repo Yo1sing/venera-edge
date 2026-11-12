@@ -6,6 +6,20 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+String mutateSettings({
+  required String settingsJson,
+  required String scope,
+  String? owner,
+  String? key,
+  String? valueJson,
+}) => RustLib.instance.api.crateApiSettingsMutateSettings(
+  settingsJson: settingsJson,
+  scope: scope,
+  owner: owner,
+  key: key,
+  valueJson: valueJson,
+);
+
 String defaultSettingsJson() =>
     RustLib.instance.api.crateApiSettingsDefaultSettingsJson();
 

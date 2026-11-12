@@ -283,7 +283,7 @@ class LocalManager with ChangeNotifier {
     await _checkPathValidation();
     _checkNoMedia();
     await ComicSourceManager().ensureInit();
-    restoreDownloadingTasks();
+    await restoreDownloadingTasks();
   }
 
   String findValidId(ComicType type) => _store.nextId(comicType: type.value);
@@ -394,65 +394,15 @@ class LocalManager with ChangeNotifier {
     return Directory(FilePath.join(path, dir)).create().then((value) => value);
   }
 
-  void completeTask(DownloadTask task) {
-    add(task.toLocalComic());
-    downloadingTasks.remove(task);
+  void applyDownloadSnapshot(List<DownloadTask> tasks) {
+    downloadingTasks = tasks;
     notifyListeners();
-    saveCurrentDownloadingTasks();
-    downloadingTasks.firstOrNull?.resume();
   }
 
-  void removeTask(DownloadTask task) {
-    downloadingTasks.remove(task);
-    notifyListeners();
-    saveCurrentDownloadingTasks();
-  }
-
-  void moveToFirst(DownloadTask task) {
-    if (downloadingTasks.first != task) {
-      var shouldResume = !downloadingTasks.first.isPaused;
-      downloadingTasks.first.pause();
-      downloadingTasks.remove(task);
-      downloadingTasks.insert(0, task);
-      notifyListeners();
-      saveCurrentDownloadingTasks();
-      if (shouldResume) {
-        downloadingTasks.first.resume();
-      }
-    }
-  }
-
-  Future<void> saveCurrentDownloadingTasks() async {
-    var tasks = downloadingTasks.map((e) => e.toJson()).toList();
-    await File(
-      FilePath.join(App.dataPath, 'downloading_tasks.json'),
-    ).writeAsString(jsonEncode(tasks));
-  }
-
-  void restoreDownloadingTasks() {
-    var file = File(FilePath.join(App.dataPath, 'downloading_tasks.json'));
-    if (file.existsSync()) {
-      try {
-        var tasks = jsonDecode(file.readAsStringSync());
-        for (var e in tasks) {
-          var task = DownloadTask.fromJson(e);
-          if (task != null) {
-            downloadingTasks.add(task);
-          }
-        }
-      } catch (e) {
-        file.delete();
-        Log.error("LocalManager", "Failed to restore downloading tasks: $e");
-      }
-    }
-  }
-
-  void addTask(DownloadTask task) {
-    downloadingTasks.add(task);
-    notifyListeners();
-    saveCurrentDownloadingTasks();
-    downloadingTasks.first.resume();
-  }
+  void removeTask(DownloadTask task) => task.cancel();
+  void moveToFirst(DownloadTask task) => DownloadQueueView.command(task.queueKey, 'first');
+  Future<void> restoreDownloadingTasks() => DownloadQueueView.initialize();
+  void addTask(DownloadTask task) => DownloadQueueView.add(task);
 
   void deleteComic(LocalComic c, [bool removeFileOnDisk = true]) {
     if (removeFileOnDisk) {

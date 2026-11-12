@@ -99,6 +99,7 @@ pub struct HttpHeader {
     pub value: String,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct HttpOptions {
     pub proxy: Option<String>,
     pub dns_overrides: HashMap<String, String>,
@@ -144,10 +145,18 @@ impl Default for HttpCancellation {
 
 #[flutter_rust_bridge::frb(opaque)]
 pub struct HttpResponse {
-    response: AsyncMutex<Option<reqwest::Response>>,
+    response: AsyncMutex<ResponseState>,
     headers: Vec<HttpHeader>,
     status: u16,
     url: String,
+}
+
+struct ResponseState {
+    native: Option<reqwest::Response>,
+    cached: Option<Vec<u8>>,
+    collecting: Option<Vec<u8>>,
+    key: Option<String>,
+    serial: Option<tokio::sync::OwnedMutexGuard<()>>,
 }
 
 impl HttpResponse {
@@ -170,21 +179,55 @@ impl HttpResponse {
     // only after its consumer has processed the previous chunk.
     pub async fn next_chunk(&self, cancellation: &HttpCancellation) -> Result<Option<Vec<u8>>> {
         let mut guard = self.response.lock().await;
-        let Some(response) = guard.as_mut() else {
+        if let Some(bytes) = guard.cached.take() {
+            return Ok(Some(bytes));
+        }
+        let Some(response) = guard.native.as_mut() else {
+            guard.serial.take();
             return Ok(None);
         };
         let result = tokio::select! {
             _ = cancellation.cancelled() => Err(anyhow!("Request cancelled")),
             chunk = response.chunk() => chunk.map(|value| value.map(|bytes| bytes.to_vec())).map_err(Into::into),
         };
-        if !matches!(result, Ok(Some(_))) {
-            guard.take();
+        match &result {
+            Ok(Some(bytes)) => {
+                if let Some(buffer) = guard.collecting.as_mut() {
+                    if buffer.len() + bytes.len() <= 1024 * 1024 {
+                        buffer.extend_from_slice(bytes);
+                    } else {
+                        guard.collecting = None;
+                    }
+                }
+            }
+            Ok(None) => {
+                if let (Some(key), Some(bytes)) = (guard.key.take(), guard.collecting.take()) {
+                    crate::http_policy::put(
+                        key,
+                        self.headers.clone(),
+                        self.status,
+                        self.url.clone(),
+                        bytes,
+                    );
+                }
+                guard.native.take();
+                guard.serial.take();
+            }
+            Err(_) => {
+                guard.native.take();
+                guard.collecting.take();
+                guard.serial.take();
+            }
         }
         result
     }
 
     pub async fn close(&self) {
-        self.response.lock().await.take();
+        let mut state = self.response.lock().await;
+        state.native.take();
+        state.cached.take();
+        state.collecting.take();
+        state.serial.take();
     }
 }
 
@@ -256,9 +299,63 @@ pub async fn http_request(
     options: HttpOptions,
     cancellation: &HttpCancellation,
 ) -> Result<HttpResponse> {
+    use crate::http_policy as policy;
+    anyhow::ensure!(!*cancellation.sender.borrow(), "Request cancelled");
+    if policy::header(&headers, "cache-time") == Some("no") {
+        policy::remove(&policy::key(
+            &url,
+            &headers,
+            &serde_json::to_string(&options)?,
+        ));
+    }
+    let serial = if policy::header(&headers, "prevent-parallel") == Some("true") {
+        Some(
+            tokio::select! {_=cancellation.cancelled()=>return Err(anyhow!("Request cancelled")),guard=policy::serial(&url)=>guard},
+        )
+    } else {
+        None
+    };
+    let cacheable = method.eq_ignore_ascii_case("GET")
+        && !has_upload
+        && body.is_none()
+        && policy::header(&headers, "range").is_none()
+        && policy::header(&headers, "cache-time") != Some("no");
+    let key = if cacheable {
+        Some(policy::key(
+            &url,
+            &headers,
+            &serde_json::to_string(&options)?,
+        ))
+    } else {
+        None
+    };
+    if let Some(cached) = key
+        .as_ref()
+        .and_then(|k| policy::get(k, policy::header(&headers, "cache-time") == Some("long")))
+    {
+        let mut headers = cached.headers;
+        headers.push(HttpHeader {
+            name: "venera-cache".into(),
+            value: "true".into(),
+        });
+        return Ok(HttpResponse {
+            status: cached.status,
+            url: cached.url,
+            headers,
+            response: AsyncMutex::new(ResponseState {
+                native: None,
+                cached: Some(cached.body),
+                collecting: None,
+                key: None,
+                serial,
+            }),
+        });
+    }
     let mut request = client(&options)?.request(method.parse()?, url);
     for header in headers {
-        request = request.header(header.name, header.value);
+        if !policy::is_policy(&header.name) {
+            request = request.header(header.name, header.value);
+        }
     }
     if has_upload {
         request = request.body(upload.body()?);
@@ -281,8 +378,19 @@ pub async fn http_request(
         status: response.status().as_u16(),
         url: response.url().to_string(),
         headers,
-        response: AsyncMutex::new(Some(response)),
+        response: AsyncMutex::new(ResponseState {
+            native: Some(response),
+            cached: None,
+            collecting: key.as_ref().map(|_| Vec::new()),
+            key,
+            serial,
+        }),
     })
+}
+
+#[flutter_rust_bridge::frb(sync)]
+pub fn clear_http_cache() {
+    crate::http_policy::clear();
 }
 
 #[cfg(test)]

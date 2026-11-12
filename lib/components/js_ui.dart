@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_qjs/flutter_qjs.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:venera/foundation/app.dart';
 import 'package:venera/foundation/js_engine.dart';
@@ -30,7 +29,7 @@ mixin class JsUiApi {
         if (onCancel != null && onCancel is! JSInvokable) {
           return;
         }
-        return _showLoading(onCancel);
+        return _showLoading(onCancel, message['_bridgeLoadingId'] as int?);
       case 'cancelLoading':
         var id = message['id'];
         if (id is int) {
@@ -102,7 +101,7 @@ mixin class JsUiApi {
     });
   }
 
-  int _showLoading(JSInvokable? onCancel) {
+  int _showLoading(JSInvokable? onCancel, int? bridgeId) {
     var func = onCancel == null ? null : JSAutoFreeFunction(onCancel);
     var controller = showLoadingDialog(
       App.rootContext,
@@ -114,7 +113,7 @@ mixin class JsUiApi {
               func?.call([]);
             },
     );
-    var i = 0;
+    var i = bridgeId ?? 0;
     while (_loadingDialogControllers.containsKey(i)) {
       i++;
     }

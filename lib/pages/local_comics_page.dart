@@ -13,7 +13,7 @@ import 'package:venera/utils/epub.dart';
 import 'package:venera/utils/io.dart';
 import 'package:venera/utils/pdf.dart';
 import 'package:venera/utils/translations.dart';
-import 'package:zip_flutter/zip_flutter.dart';
+import 'package:venera/src/rust/api/archive.dart' as archive;
 import 'package:url_launcher/url_launcher_string.dart';
 
 class LocalComicsPage extends StatefulWidget {
@@ -513,7 +513,7 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
       // For multiple comics, compress the folder
       loadingController.setProgress(null);
       loadingController.setMessage("Compressing".tl);
-      await ZipFile.compressFolderAsync(cacheDir, outFile);
+      await archive.compressFolder(input: cacheDir, output: outFile);
       if (canceled) {
         File(outFile).deleteIgnoreError();
         return;

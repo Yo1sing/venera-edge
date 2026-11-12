@@ -4,13 +4,13 @@ use std::sync::Mutex;
 /// Owns both the cache index and files. SQLite connections never cross into Dart.
 #[flutter_rust_bridge::frb(opaque)]
 pub struct CacheStore {
-    inner: Mutex<crate::cache::Cache>,
+    inner: std::sync::Arc<Mutex<crate::cache::Cache>>,
 }
 
 impl CacheStore {
     pub fn open(data_path: String, cache_path: String) -> Result<Self> {
         Ok(Self {
-            inner: Mutex::new(crate::cache::Cache::open(&data_path, &cache_path)?),
+            inner: crate::cache::shared(&data_path, &cache_path)?,
         })
     }
 

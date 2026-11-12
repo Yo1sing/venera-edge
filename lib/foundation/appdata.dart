@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import 'package:venera/foundation/app.dart';
 import 'package:venera/foundation/log.dart';
 import 'package:venera/src/rust/api/settings.dart' as backend;
@@ -65,6 +64,8 @@ class Appdata with Init {
     searchHistory = List<String>.from(data['searchHistory']);
   }
 
+  void applyBackendData(Map<String, dynamic> data) => _apply(data);
+
   void syncData(Map<String, dynamic> data) {
     _apply(
       jsonDecode(
@@ -124,7 +125,7 @@ class Settings with ChangeNotifier {
   }
 
   operator []=(String key, dynamic value) {
-    _data[key] = value;
+    _mutate('global', key: key, value: value);
     if (key != "dataVersion") {
       notifyListeners();
     }
@@ -162,15 +163,12 @@ class Settings with ChangeNotifier {
     String key,
     dynamic value,
   ) {
-    (_data['comicSpecificSettings'] as Map<String, dynamic>).putIfAbsent(
-      "$comicId@$sourceKey",
-      () => <String, dynamic>{},
-    )[key] = value;
+    _mutate('comic', owner: '$comicId@$sourceKey', key: key, value: value);
     notifyListeners();
   }
 
   void resetComicReaderSettings(String key) {
-    (_data['comicSpecificSettings'] as Map).remove(key);
+    _mutate('comic', owner: key);
     notifyListeners();
   }
 
@@ -193,31 +191,28 @@ class Settings with ChangeNotifier {
   }
 
   void setDeviceReaderSetting(String key, dynamic value) {
-    var deviceId = _getOrCreateDeviceId();
-    (_data['deviceSpecificSettings'] as Map<String, dynamic>).putIfAbsent(
-      deviceId,
-      () => <String, dynamic>{},
-    )[key] = value;
+    _mutate('device', key: key, value: value);
     notifyListeners();
   }
 
   void resetDeviceReaderSettings() {
-    var deviceId = _data['deviceId'] as String;
-    if (deviceId.isEmpty) {
-      return;
-    }
-    (_data['deviceSpecificSettings'] as Map).remove(deviceId);
+    _mutate('device');
     notifyListeners();
   }
 
-  String _getOrCreateDeviceId() {
-    var deviceId = _data['deviceId'] as String;
-    if (deviceId.isNotEmpty) {
-      return deviceId;
-    }
-    var id = const Uuid().v4();
-    _data['deviceId'] = id;
-    return id;
+  void _mutate(String scope, {String? owner, String? key, dynamic value}) {
+    final next = jsonDecode(
+      backend.mutateSettings(
+        settingsJson: jsonEncode(_data),
+        scope: scope,
+        owner: owner,
+        key: key,
+        valueJson: key == null ? null : jsonEncode(value),
+      ),
+    );
+    _data
+      ..clear()
+      ..addAll(Map<String, dynamic>.from(next));
   }
 
   @override

@@ -10,6 +10,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-libclang
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
@@ -58,6 +59,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-libclang
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
@@ -84,6 +86,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-libclang
       - run: rm -rf /opt/hostedtoolcache
       - uses: subosito/flutter-action@v2
         with:
@@ -113,6 +116,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-libclang
       - name: install dependencies
         run: | 
           choco install yq -y
@@ -136,6 +140,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-libclang
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
@@ -164,6 +169,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-libclang
       - uses: subosito/flutter-action@v2
         with:
           channel: 'master'
