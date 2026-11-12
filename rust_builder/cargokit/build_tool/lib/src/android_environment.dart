@@ -110,6 +110,15 @@ class AndroidEnvironment {
     }
 
     final targetArg = '--target=${target.rust}$minSdkVersion';
+    final ccValue = path.join(toolchainPath, 'clang$exe');
+
+    // A separately installed host libclang may not discover its builtin
+    // headers. Use the NDK compiler's resource directory alongside its sysroot.
+    final resourceDir = runCommand(ccValue, ['-print-resource-dir'])
+        .stdout
+        .toString()
+        .trim()
+        .replaceAll('\\', '/');
 
     // libclang runs on the host, but bindgen must parse Android's headers and
     // API level. Do not let it pick up Windows/Linux/macOS system headers.
@@ -120,10 +129,10 @@ class AndroidEnvironment {
     final extraBindgenArgs = Platform.environment[bindgenKey] ??
         Platform.environment['BINDGEN_EXTRA_CLANG_ARGS'] ??
         '';
-    final bindgenArgs = '--sysroot="$sysroot" $targetArg $extraBindgenArgs';
+    final bindgenArgs =
+        '--sysroot="$sysroot" -resource-dir="$resourceDir" $targetArg $extraBindgenArgs';
 
     final ccKey = 'CC_${target.rust}';
-    final ccValue = path.join(toolchainPath, 'clang$exe');
     final cfFlagsKey = 'CFLAGS_${target.rust}';
     final cFlagsValue = targetArg;
 
